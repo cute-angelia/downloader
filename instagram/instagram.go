@@ -30,10 +30,12 @@ func NewInstagram() *instagram {
 
 var downloadUser = ""
 
+// 定义一个整数
+var ops uint64 = 0
+
 func (self instagram) Do() {
 	for _, v := range config.ConfigObj.Links {
 		downloadUser = path.Base(v)
-		log.Println(v, downloadUser)
 		if err := getHomePage(v); err != nil {
 			log.Println(err)
 		}
@@ -46,6 +48,9 @@ const (
 )
 
 func getHomePage(uri string) error {
+
+	// log.Println("config", config.ConfigObj.Offset,config.ConfigObj.Count )
+
 	if rngInfo, err := createRangeInfo(config.ConfigObj.From, config.ConfigObj.To, config.ConfigObj.Offset, config.ConfigObj.Count); err != nil {
 		log.Println(err)
 	} else {
@@ -69,6 +74,7 @@ func getHomePage(uri string) error {
 			errc := make(chan error, 1)
 			done := make(chan struct{})
 			defer close(done)
+
 			const numWorkers = 10
 			var wg sync.WaitGroup
 			wg.Add(numWorkers)
@@ -123,7 +129,7 @@ func scrapeImages(ri rangeInfo, u string) error {
 		return err
 	}
 
-	log.Println(p)
+	// log.Println(p)
 
 	return nil
 }
@@ -289,7 +295,9 @@ func getNextPage(id string, endCursor string, rhxGis string) (*PaginationQueryRe
 	}
 	defer resp.Body.Close()
 	qresp := new(PaginationQueryResponse)
+
 	dec := json.NewDecoder(resp.Body)
+
 	err = dec.Decode(qresp)
 	if err != nil {
 		return nil, err
@@ -320,6 +328,10 @@ func xhr(u *url.URL, query url.Values, rhxGis string) (resp *http.Response, err 
 		resp.Body.Close()
 		return nil, fmt.Errorf("instaget.xhr: %s", resp.Status)
 	}
+
+	//b2, _ := ioutil.ReadAll(resp.Body)
+	//log.Println(u.String(), string(b2))
+
 	return resp, nil
 }
 
@@ -341,7 +353,6 @@ func downloadResources(done chan struct{}, errc chan<- error, urls <-chan string
 }
 
 func downloadFile(urlStr string) error {
-
 	body := ""
 	gout.GET(urlStr).SetHeader(gout.H{
 		"user-agent": config.ConfigObj.UserAgent,
@@ -349,7 +360,7 @@ func downloadFile(urlStr string) error {
 	}).BindBody(&body).Do()
 
 	/// 下载路径
-	name := file.MakeNameByTimeline( urlStr, "")
+	name := makeWithoutQuery(urlStr)
 	downloadSavePath := getDownloadPath(name)
 
 	// 创建目录
@@ -364,11 +375,20 @@ func downloadFile(urlStr string) error {
 	}
 
 	//log.Println("download_path:" + downloadSavePath)
-	log.Println("download_url:" + urlStr, downloadSavePath)
+	// log.Println("download_url:"+urlStr, downloadSavePath)
 
 	return nil
 }
 
 func getDownloadPath(resPath string) string {
 	return config.ConfigObj.Path + "/" + downloadUser + "/" + resPath
+}
+
+func makeWithoutQuery(uri string) string {
+	if z, err := url.Parse(uri); err != nil {
+		return file.MakeNameByTimeline(uri, "")
+	} else {
+		ts := strings.Split(z.Path, "/")
+		return ts[len(ts)-1]
+	}
 }

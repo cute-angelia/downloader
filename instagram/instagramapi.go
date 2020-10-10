@@ -1,6 +1,8 @@
 package instagram
 
-import "time"
+import (
+	"time"
+)
 
 // ProfilePostPage is 2896 bytes
 type ProfilePostPage struct {
